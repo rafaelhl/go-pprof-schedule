@@ -27,10 +27,10 @@ func main() {
 		Run: func(cmd *cobra.Command, args []string) {
 
 			// Agende o profiling com o período, data e horário especificados pelo usuário.
-			profiling.ScheduleProfiler(time.Duration(period)*time.Minute, date, timeStr, cpuProfile, appURL)
+			profilesDir := profiling.ScheduleProfiler(time.Duration(period)*time.Minute, date, timeStr, cpuProfile, appURL)
 
 			// Inicie o servidor HTTP para a interface HTML do profiling.
-			web.StartServer()
+			web.StartServer(profilesDir)
 		},
 	}
 

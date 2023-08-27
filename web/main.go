@@ -4,51 +4,40 @@ package web
 
 import (
 	"bytes"
-	"flag"
 	"fmt"
 	"html/template"
 	"log"
 	"net/http"
 	"os"
-	"runtime/pprof"
 	"time"
 )
 
 var (
-	cpuprofile = flag.String("cpuprofile", "", "Arquivo para salvar o CPU profiling")
-	appURL     = flag.String("appurl", "", "URL da aplicação externa com profiling habilitado")
+	baseDir, _    = os.Getwd()
+	templateIndex = template.Must(template.New("index.html").ParseFiles(fmt.Sprintf("%s/web/templates/index.html", baseDir)))
 )
 
-func StartServer() {
+func StartServer(profilesDir string) {
 	// Inicie o servidor HTTP para profiling em segundo plano.
 	go func() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
 
 	// Inicie o servidor HTTP para a interface HTML do profiling.
-	http.HandleFunc("/", handleHTML)
+	http.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
+		handleHTML(profilesDir, writer, request)
+	})
 	// Adicione a rota para o profiling do CPU.
-	http.Handle("/debug/pprof/", http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		// TODO:
+	http.Handle("/debug/pprof/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "Not supported yet", http.StatusNotImplemented)
 	}))
 	http.ListenAndServe(":8080", nil)
 }
 
-func handleHTML(w http.ResponseWriter, r *http.Request) {
-	// Execute o CPU profiling
-	if *cpuprofile != "" {
-		f, err := os.Create(*cpuprofile)
-		if err != nil {
-			http.Error(w, "Erro ao criar o arquivo de CPU profiling", http.StatusInternalServerError)
-			return
-		}
-		pprof.StartCPUProfile(f)
-		defer pprof.StopCPUProfile()
-	}
-
-	profilesDir, err := os.ReadDir(fmt.Sprintf("%s/go-pprof-schedule", os.TempDir()))
+func handleHTML(dir string, w http.ResponseWriter, _ *http.Request) {
+	profilesDir, err := os.ReadDir(dir)
 	if err != nil {
-		http.Error(w, "Erro ao ler os profiles", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -58,9 +47,9 @@ func handleHTML(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		result, err := os.ReadFile(profile.Name())
+		result, err := os.ReadFile(fmt.Sprintf("%s/%s", dir, profile.Name()))
 		if err != nil {
-			http.Error(w, "Erro ao ler o profile", http.StatusInternalServerError)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
@@ -76,14 +65,8 @@ func handleHTML(w http.ResponseWriter, r *http.Request) {
 		AppProfile: allCollected.String(),
 	}
 
-	t, err := template.New("profiling").ParseFiles("templates/index.html")
-	if err != nil {
-		http.Error(w, "Erro ao renderizar o template", http.StatusInternalServerError)
-		return
-	}
-
-	if err := t.Execute(w, data); err != nil {
-		http.Error(w, "Erro ao executar o template", http.StatusInternalServerError)
+	if err := templateIndex.Execute(w, data); err != nil {
+		http.Error(w, fmt.Sprintf("Erro executando template: %s", err.Error()), http.StatusInternalServerError)
 		return
 	}
 }
