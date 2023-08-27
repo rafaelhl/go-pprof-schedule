@@ -14,28 +14,6 @@ import (
 	"github.com/rafaelhl/go-pprof-schedule/internal/appclient"
 )
 
-const tmpl := `
-<!DOCTYPE html>
-<html>
-<head>
-	<title>Profiling Interface</title>
-</head>
-<body>
-	<h1>Profiling Data</h1>
-	<p>Timestamp: {{.Timestamp}}</p>
-	<pre>{{.AppProfile}}</pre>
-	<a href="/debug/pprof/goroutine?debug=1">Goroutine profiling</a>
-	<br>
-	<a href="/debug/pprof/heap?debug=1">Heap profiling</a>
-	<br>
-	<a href="/debug/pprof/threadcreate?debug=1">ThreadCreate profiling</a>
-	<br>
-	<a href="/debug/pprof/block?debug=1">Block profiling</a>
-	<br>
-</body>
-</html>
-`
-
 var (
 	cpuprofile = flag.String("cpuprofile", "", "Arquivo para salvar o CPU profiling")
 	appURL     = flag.String("appurl", "", "URL da aplicação externa com profiling habilitado")
@@ -50,7 +28,9 @@ func StartServer() {
 	// Inicie o servidor HTTP para a interface HTML do profiling.
 	http.HandleFunc("/", handleHTML)
 	// Adicione a rota para o profiling do CPU.
-	http.Handle("/debug/pprof/", http.HandlerFunc(pprof.Index))
+	http.Handle("/debug/pprof/", http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		// TODO:
+	}))
 	http.ListenAndServe(":8080", nil)
 }
 
@@ -75,7 +55,7 @@ func handleHTML(w http.ResponseWriter, r *http.Request) {
 		AppProfile: appclient.CollectAppProfile(*appURL),
 	}
 
-	t, err := template.New("profiling").Parse(tmpl)
+	t, err := template.New("profiling").ParseFiles("templates/index.html")
 	if err != nil {
 		http.Error(w, "Erro ao renderizar o template", http.StatusInternalServerError)
 		return
