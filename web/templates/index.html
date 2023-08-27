@@ -1,0 +1,21 @@
+<!-- web/templates/index.html -->
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Profiling Interface</title>
+</head>
+<body>
+<h1>Profiling Data</h1>
+<p>Timestamp: {{.Timestamp}}</p>
+<pre>{{.AppProfile}}</pre>
+<a href="/debug/pprof/goroutine?debug=1">Goroutine profiling</a>
+<br>
+<a href="/debug/pprof/heap?debug=1">Heap profiling</a>
+<br>
+<a href="/debug/pprof/threadcreate?debug=1">ThreadCreate profiling</a>
+<br>
+<a href="/debug/pprof/block?debug=1">Block profiling</a>
+<br>
+</body>
+</html>
