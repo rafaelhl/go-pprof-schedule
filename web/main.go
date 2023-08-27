@@ -3,15 +3,15 @@
 package web
 
 import (
+	"bytes"
 	"flag"
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
 	"os"
 	"runtime/pprof"
 	"time"
-
-	"github.com/rafaelhl/go-pprof-schedule/internal/appclient"
 )
 
 var (
@@ -46,13 +46,34 @@ func handleHTML(w http.ResponseWriter, r *http.Request) {
 		defer pprof.StopCPUProfile()
 	}
 
+	profilesDir, err := os.ReadDir(fmt.Sprintf("%s/go-pprof-schedule", os.TempDir()))
+	if err != nil {
+		http.Error(w, "Erro ao ler os profiles", http.StatusInternalServerError)
+		return
+	}
+
+	var allCollected bytes.Buffer
+	for _, profile := range profilesDir {
+		if profile.IsDir() {
+			continue
+		}
+
+		result, err := os.ReadFile(profile.Name())
+		if err != nil {
+			http.Error(w, "Erro ao ler o profile", http.StatusInternalServerError)
+			return
+		}
+
+		allCollected.Write(result)
+	}
+
 	// Renderiza o template HTML usando os dados do profiling
 	data := struct {
 		Timestamp  time.Time
 		AppProfile string
 	}{
 		Timestamp:  time.Now(),
-		AppProfile: appclient.CollectAppProfile(*appURL),
+		AppProfile: allCollected.String(),
 	}
 
 	t, err := template.New("profiling").ParseFiles("templates/index.html")

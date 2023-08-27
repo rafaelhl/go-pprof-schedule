@@ -3,11 +3,16 @@
 package profiling
 
 import (
+	"fmt"
+	"io/fs"
 	"log"
+	"os"
 	"time"
+
+	"github.com/rafaelhl/go-pprof-schedule/internal/appclient"
 )
 
-func ScheduleProfiler(period time.Duration, execDateStr, execTimeStr string) {
+func ScheduleProfiler(period time.Duration, execDateStr, execTimeStr, cpuprofile, appURL string) {
 	// Analise a data e horário de execução fornecidos pelo usuário.
 	execDateTimeStr := execDateStr + " " + execTimeStr
 	execDateTime, err := time.Parse("2006-01-02 15:04", execDateTimeStr)
@@ -26,19 +31,25 @@ func ScheduleProfiler(period time.Duration, execDateStr, execTimeStr string) {
 	// Agende o primeiro profiling na próxima data e horário de execução especificados.
 	time.AfterFunc(durationUntilExec, func() {
 		// Execute o profiling.
-		runProfiler()
+		runProfiler(cpuprofile, appURL)
 
 		// Agende o próximo profiling com o período especificado.
 		ticker := time.NewTicker(period)
 		for range ticker.C {
-			runProfiler()
+			runProfiler(cpuprofile, appURL)
 		}
 	})
 }
 
-func runProfiler() {
-	// Coloque aqui a lógica específica do profiling que você deseja executar.
-	// Por exemplo, pode ser algo como coletar os dados do programa e salvá-los em um arquivo.
-	// Você pode usar as funções do pacote "pprof" para coletar dados como CPU profiling, memory profiling, etc.
-	log.Println("Profiling executado.")
+func runProfiler(appURL, cpuProfile string) {
+	appProfile := appclient.CollectAppProfile(appURL)
+	resultProfile := fmt.Sprintf("/profile-%v.prof", time.Now().UnixNano())
+	if cpuProfile != "" {
+		resultProfile = cpuProfile
+	}
+
+	err := os.WriteFile(fmt.Sprintf("%s/go-pprof-schedule/%s", os.TempDir(), resultProfile), []byte(appProfile), fs.ModeAppend)
+	if err != nil {
+		log.Fatalf("Erro ao salvar o profile: %v", err)
+	}
 }
